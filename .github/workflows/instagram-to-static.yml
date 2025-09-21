@@ -1,83 +1,37 @@
-name: Instagram → Static media.json
-
+name: Write media.json test
 on:
-  schedule: [{ cron: "0 3 * * *" }]   # daily at 03:00 UTC
-  workflow_dispatch:                  # allow manual run
-
+  workflow_dispatch: {}
 permissions:
-  contents: write                     # allow pushing to the repo
+  contents: write
 
 jobs:
-  build-media-json:
+  write:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Instaloader
-        run: pip install instaloader
-
-      - name: Fetch latest posts (public profile)
+      - name: Create a simple media.json at repo root
         run: |
-          rm -rf scraped && mkdir -p scraped
-          instaloader --no-captions --no-video-thumbnails \
-            --dirname-pattern scraped --slide --fast-update \
-            --count 30 profile ravandeh.std || true
-
-      - name: Build media.json at repo root
-        run: |
-          python - << 'PY'
-          import json, os, glob, datetime
-          out = []
-          for postdir in sorted(glob.glob("scraped/*")):
-              meta = os.path.join(postdir, "metadata.json")
-              if not os.path.exists(meta): 
-                  continue
-              with open(meta, "r", encoding="utf-8") as f:
-                  m = json.load(f)
-              imgs = [p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))]
-              if not imgs:
-                  continue
-              imgs.sort()
-              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
-              code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
-              permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
-              caption = ""
-              node = m.get("node",{})
-              edges = node.get("edge_media_to_caption",{}).get("edges",[])
-              if edges:
-                  caption = edges[0]["node"].get("text","")
-              else:
-                  caption = m.get("caption","")
-              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
-              if isinstance(ts, (int, float)):
-                  timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
-              else:
-                  timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat() + "Z"
-              out.append({
-                  "id": m.get("id") or code or img_path,
-                  "caption": caption,
-                  "media_url": "/" + img_path,   # served by GitHub Pages
-                  "permalink": permalink,
-                  "media_type": "IMAGE",
-                  "timestamp": timestamp
-              })
-          out.sort(key=lambda x: x["timestamp"], reverse=True)
-          with open("media.json","w",encoding="utf-8") as f:
-              json.dump(out, f, ensure_ascii=False, indent=2)
-          PY
+          cat > media.json << 'JSON'
+          [
+            {
+              "id": "test-1",
+              "caption": "Hello from GitHub Actions #analog",
+              "media_url": "/images/sample-1.jpg",
+              "permalink": "https://www.instagram.com/ravandeh.std/",
+              "media_type": "IMAGE",
+              "timestamp": "2025-01-01T00:00:00Z"
+            }
+          ]
+          JSON
+          mkdir -p images
+          echo "fake image bytes" > images/sample-1.jpg
 
       - name: Commit & push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Update media.json + images" || echo "No changes to commit"
+          git commit -m "TEST: write media.json" || echo "No changes"
           git push
