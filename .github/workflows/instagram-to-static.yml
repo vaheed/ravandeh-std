@@ -2,7 +2,7 @@ name: Instagram -> Static media.json
 
 on:
   schedule:
-    - cron: "0 3,15 * * *"   # run twice per day
+    - cron: "0 3,15 * * *"   # twice per day
   workflow_dispatch: {}
 
 permissions:
@@ -33,16 +33,16 @@ jobs:
       - name: Fetch latest posts (anonymous)
         run: |
           rm -rf scraped && mkdir -p scraped
-          # Smaller count reduces rate-limit risk. If IG blocks, we still continue.
           instaloader --no-video-thumbnails --no-compress-json \
             --dirname-pattern scraped --fast-update \
             --count 10 "ravandeh.std" || true
           echo "Scraped tree:"
           ls -la scraped || true
 
-      - name: Build media.new (relative paths)
+      # Write the Python builder script as a file (avoids YAML heredoc issues)
+      - name: Write builder script
         run: |
-          python <<'PY'
+          cat > build_media.py << 'PY'
 import json, os, glob, datetime, re
 
 def post_dirs(root="scraped"):
@@ -67,7 +67,10 @@ for d in post_dirs():
     node = meta.get("node", {})
     shortcode = meta.get("shortcode") or node.get("shortcode") or ""
     edges = node.get("edge_media_to_caption", {}).get("edges", [])
-    caption = edges[0]["node"].get("text","") if edges and edges[0].get("node") else (meta.get("caption","") or "")
+    if edges and isinstance(edges, list) and edges[0].get("node"):
+        caption = edges[0]["node"].get("text", "") or ""
+    else:
+        caption = meta.get("caption", "") or ""
     ts = meta.get("taken_at_timestamp") or meta.get("date_local") or meta.get("date_utc")
     if isinstance(ts, (int, float)):
         timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
@@ -84,7 +87,7 @@ for d in post_dirs():
     items.append({
         "id": meta.get("id") or shortcode or img_path,
         "caption": caption,
-        "media_url": img_path,  # RELATIVE path (works on GitHub Pages)
+        "media_url": img_path,  # RELATIVE path for GitHub Pages
         "permalink": f"https://www.instagram.com/p/{shortcode}/" if shortcode else "https://www.instagram.com/ravandeh.std/",
         "media_type": "IMAGE",
         "timestamp": timestamp
@@ -93,14 +96,17 @@ for d in post_dirs():
 items.sort(key=lambda x: x["timestamp"], reverse=True)
 
 if items:
-    with open("media.new","w",encoding="utf-8") as f:
+    with open("media.new", "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
 else:
-    # No posts scraped (rate limit or none found) -> don't write anything.
+    # No posts scraped (rate limit?). Do not overwrite existing media.json.
     pass
 PY
 
-      - name: Commit media.json if we have new data
+      - name: Build media.new
+        run: python build_media.py
+
+      - name: Commit media.json if new data exists
         run: |
           if [ -f media.new ]; then
             mv media.new media.json
