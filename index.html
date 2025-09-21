@@ -5,19 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ravandeh Studio — Gallery</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { display: ['Inter','ui-sans-serif','system-ui'], body: ['Inter','ui-sans-serif','system-ui'] },
-          boxShadow: { soft: '0 10px 25px rgba(0,0,0,0.08)' }
-        }
-      }
-    }
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     .masonry{column-count:1;column-gap:1rem}
     @media (min-width:640px){.masonry{column-count:2}}
@@ -35,45 +22,10 @@
     .lb-img{max-height:85vh;width:auto;height:auto;display:block}
   </style>
 </head>
-<body class="min-h-screen bg-neutral-50 text-neutral-900 font-body">
-  <header class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-white/60 bg-white/90 border-b border-neutral-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-2xl bg-neutral-900 text-white grid place-items-center shadow-soft">RS</div>
-        <div>
-          <h1 class="text-xl font-semibold tracking-tight">Ravandeh Studio</h1>
-          <p class="text-sm text-neutral-600">Analog & Digital photography — curated postcards by verified authors</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <input id="search" type="search" placeholder="Search caption, tags…" class="w-64 md:w-80 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900" />
-        </div>
-        <select id="filter" class="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900">
-          <option value="all">All types</option>
-          <option value="analog">Analog</option>
-          <option value="digital">Digital</option>
-        </select>
-        <a href="https://www.instagram.com/ravandeh.std/" target="_blank" class="inline-flex items-center gap-2 rounded-full bg-neutral-900 text-white px-4 py-2 text-sm shadow-soft hover:opacity-90 transition">@ravandeh.std</a>
-      </div>
-    </div>
-  </header>
-
+<body class="min-h-screen bg-neutral-50 text-neutral-900">
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <div class="flex flex-wrap items-center gap-3 mb-6">
-      <div class="inline-flex items-center gap-1 rounded-full bg-white border border-neutral-200 px-2 py-1 shadow-soft">
-        <button id="style-min" class="px-3 py-1 rounded-full text-sm font-medium hover:bg-neutral-100">Minimal</button>
-        <button id="style-postcard" class="px-3 py-1 rounded-full text-sm font-medium bg-neutral-900 text-white">Postcard</button>
-      </div>
-      <select id="sort" class="rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-      </select>
-    </div>
-
     <div id="gallery" class="masonry"></div>
-
-    <footer class="text-center text-neutral-500 text-sm mt-12 mb-8">© <span id="year"></span> Ravandeh Studio — All images © respective photographers</footer>
+    <footer class="text-center text-neutral-500 text-sm mt-12 mb-8">© <span id="year"></span> Ravandeh Studio</footer>
   </main>
 
   <dialog id="lightbox">
@@ -87,143 +39,74 @@
       </div>
       <div class="flex justify-between items-center px-4 py-3 bg-black/90 text-white">
         <a id="lb-link" target="_blank" class="underline text-sm">Open on Instagram</a>
-        <div class="flex items-center gap-2">
-          <span class="text-xs bg-white/10 rounded-full px-2 py-1" id="lb-type">—</span>
-          <span class="text-xs bg-white/10 rounded-full px-2 py-1" id="lb-date">—</span>
-        </div>
+        <span class="text-xs bg-white/10 rounded-full px-2 py-1" id="lb-date">—</span>
       </div>
     </div>
   </dialog>
 
   <script>
-    // ------------ CONFIG ------------
-    const INSTAGRAM_TOKEN = "";          // leave empty (no token)
-    const INSTAGRAM_USER_ID = "";        // leave empty (no token)
-    // IMPORTANT: relative path (works on GitHub Pages under /<user>/<repo>/)
-    const STATIC_JSON_URL = "media.json";
+    const STATIC_JSON_URL = "media.json"; // IMPORTANT: relative path (no leading slash)
 
-    // If a path in media.json starts with "/", strip it and prepend this repo base.
-    const REPO_BASE = (function () {
+    // Prepend the repo base path so images like "scraped/..." work on GitHub Pages.
+    const REPO_BASE = (() => {
       const parts = window.location.pathname.split('/');
       return parts.length > 2 ? `/${parts[1]}/${parts[2]}/` : '/';
     })();
-    const withBase = (url) => {
-      if (!url) return url;
-      const u = url.startsWith('/') ? url.slice(1) : url;
-      return REPO_BASE + u;
-    };
+    const withBase = (url) => (url ? REPO_BASE + (url.startsWith('/') ? url.slice(1) : url) : url);
 
-    const TYPE_OVERRIDES = {}; // optional overrides by media id
-
-    const state = { items: [], style: 'postcard', filter: 'all', sort: 'newest', query: '' };
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Controls
-    filter.onchange = () => (state.filter = filter.value, render());
-    sort.onchange = () => (state.sort = sort.value, render());
-    search.oninput = () => (state.query = search.value.toLowerCase(), render());
-    style-min.onclick = () => { state.style = 'minimal'; style-postcard.classList.remove('bg-neutral-900','text-white'); style-min.classList.add('bg-neutral-900','text-white'); render(); };
-    style-postcard.onclick = () => { state.style = 'postcard'; style-min.classList.remove('bg-neutral-900','text-white'); style-postcard.classList.add('bg-neutral-900','text-white'); render(); };
-
-    // Lightbox
     const lb = document.getElementById('lightbox');
     const lbImg = document.getElementById('lb-img');
     const lbCaption = document.getElementById('lb-caption');
-    const lbType = document.getElementById('lb-type');
     const lbDate = document.getElementById('lb-date');
     const lbLink = document.getElementById('lb-link');
     document.getElementById('lb-close').onclick = () => lb.close();
-    lb.addEventListener('click', (e) => { if (e.target === lb) lb.close(); });
+    lb.addEventListener('click', e => { if (e.target === lb) lb.close(); });
 
     function openLightbox(item) {
       lbImg.src = withBase(item.media_url);
       lbCaption.textContent = item.caption || '';
-      lbType.textContent = (item.type || 'photo').toUpperCase();
       lbDate.textContent = new Date(item.timestamp).toLocaleDateString();
-      lbLink.href = item.permalink;
+      lbLink.href = item.permalink || 'https://www.instagram.com/ravandeh.std/';
       lb.showModal();
     }
 
-    // Fetch helpers (static mode only in your case)
-    async function fetchStaticJson(path) {
-      const res = await fetch(path, { cache: 'no-store' });
-      if (!res.ok) throw new Error('media.json not found');
-      const arr = await res.json();
-      return arr.map(normalizeItem);
-    }
+    function escapeHtml(s){return (s||'').replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
 
-    function normalizeItem(raw) {
-      const id = raw.id || crypto.randomUUID();
-      const caption = raw.caption || '';
-      const media_type = (raw.media_type || raw.type || 'IMAGE').toUpperCase();
-      const timestamp = raw.timestamp || Date.now();
-      const permalink = raw.permalink || 'https://www.instagram.com/ravandeh.std/';
-      const media_url = raw.media_url;
-      let type = TYPE_OVERRIDES[id] || inferTypeFromCaption(caption);
-      if (!type) type = 'digital';
-      return { id, caption, media_url, permalink, media_type, timestamp, type };
-    }
-    function inferTypeFromCaption(caption) {
-      const c = (caption || '').toLowerCase();
-      if (/#analog\b/.test(c) || /\banalog\b/.test(c)) return 'analog';
-      if (/#digital\b/.test(c) || /\bdigital\b/.test(c)) return 'digital';
-      return null;
-    }
-
-    function getFilteredSorted(items) {
-      let out = items.slice();
-      if (state.filter !== 'all') out = out.filter(i => i.type === state.filter);
-      if (state.query) out = out.filter(i => (i.caption || '').toLowerCase().includes(state.query));
-      out.sort((a,b) => state.sort === 'newest' ? (new Date(b.timestamp) - new Date(a.timestamp)) : (new Date(a.timestamp) - new Date(b.timestamp)));
-      return out;
-    }
-
-    function render() {
-      const container = document.getElementById('gallery');
-      container.innerHTML = '';
-      for (const item of getFilteredSorted(state.items)) {
+    function render(items) {
+      const root = document.getElementById('gallery');
+      root.innerHTML = '';
+      for (const item of items) {
         const card = document.createElement('article');
         card.className = 'masonry-item fade-in';
-        const minimal = `
-          <img src="${withBase(item.media_url)}" loading="lazy" alt="" class="w-full rounded-xl shadow-soft"/>
-          <div class="mt-2 flex items-center justify-between">
-            <div class="text-sm text-neutral-600 line-clamp-2">${escapeHtml(item.caption || '')}</div>
-            <div class="text-xs text-neutral-500">${new Date(item.timestamp).toLocaleDateString()}</div>
-          </div>`;
-        const postcard = `
-          <div class="postcard shadow-soft">
+        card.innerHTML = `
+          <div class="postcard shadow-[0_10px_25px_rgba(0,0,0,0.08)]">
             <img src="${withBase(item.media_url)}" loading="lazy" alt="" class="w-full block"/>
             <div class="absolute inset-x-0 bottom-0 p-3 text-white flex items-end justify-between">
-              <div>
-                <div class="inline-flex items-center gap-2 text-xs badge bg-white/10 rounded-full px-2 py-1">
-                  <span class="inline-block w-2 h-2 rounded-full ${item.type==='analog' ? 'bg-amber-300' : 'bg-cyan-300'}"></span>
-                  <span class="uppercase tracking-wide">${item.type}</span>
-                </div>
-                <div class="mt-2 text-sm leading-tight line-clamp-2">${escapeHtml(item.caption || '')}</div>
-              </div>
+              <div class="text-sm leading-tight line-clamp-2">${escapeHtml(item.caption || '')}</div>
               <div class="text-xs opacity-80">${new Date(item.timestamp).toLocaleDateString()}</div>
             </div>
           </div>`;
-        card.innerHTML = state.style === 'minimal' ? minimal : postcard;
         card.addEventListener('click', () => openLightbox(item));
-        container.appendChild(card);
+        root.appendChild(card);
         requestAnimationFrame(() => card.classList.add('show'));
       }
     }
-    function escapeHtml(str){return (str||'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
 
     async function init() {
       try {
-        const items = await fetchStaticJson(STATIC_JSON_URL);
-        state.items = items;
-        render();
+        const res = await fetch(STATIC_JSON_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error('media.json not found');
+        const data = await res.json();
+        render(data);
       } catch (e) {
-        console.error(e);
         document.getElementById('gallery').innerHTML = `
           <div class="p-6 rounded-xl bg-red-50 border border-red-200 text-red-700">
             <div class="font-semibold">Couldn’t load images.</div>
-            <div class="text-sm mt-1">Ensure <code>media.json</code> exists in your repo root and image paths are relative.</div>
+            <div class="text-sm mt-1">Ensure <code>media.json</code> exists and image paths are relative (e.g., <code>scraped/...</code>).</div>
           </div>`;
+        console.error(e);
       }
     }
     init();
