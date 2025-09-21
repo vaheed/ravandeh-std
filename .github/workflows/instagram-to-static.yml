@@ -1,59 +1,66 @@
-name: Write media.json test (explicit push)
-
+name: Instagram → Static media.json
 on:
+  schedule: [{ cron: "0 3 * * *" }]
   workflow_dispatch: {}
-
 permissions:
   contents: write
 
 jobs:
-  write:
+  build-media-json:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main (not detached)
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: true
+      - uses: actions/checkout@v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install instaloader
 
-      - name: Show repo state before changes
+      - name: Fetch latest posts (public profile)
         run: |
-          set -x
-          git rev-parse --abbrev-ref HEAD
-          git status
-          git remote -v
-          ls -la
+          rm -rf scraped && mkdir -p scraped
+          instaloader --no-captions --no-video-thumbnails \
+            --dirname-pattern scraped --slide --fast-update \
+            --count 30 profile ravandeh.std || true
 
-      - name: Create media.json + a sample image
+      - name: Build media.json at repo root
         run: |
-          set -e
-          mkdir -p images
-          echo "fake image bytes" > images/sample-1.jpg
-          cat > media.json << 'JSON'
-          [
-            {
-              "id": "test-1",
-              "caption": "Hello from GitHub Actions #analog",
-              "media_url": "/images/sample-1.jpg",
-              "permalink": "https://www.instagram.com/ravandeh.std/",
-              "media_type": "IMAGE",
-              "timestamp": "2025-01-01T00:00:00Z"
-            }
-          ]
-          JSON
-          echo "---- after write ----"
-          ls -la
-          git status
+          python - << 'PY'
+          import json, os, glob, datetime
+          out = []
+          for postdir in sorted(glob.glob("scraped/*")):
+              meta = os.path.join(postdir, "metadata.json")
+              if not os.path.exists(meta): continue
+              with open(meta, "r", encoding="utf-8") as f: m = json.load(f)
+              imgs = sorted([p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
+              if not imgs: continue
+              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
+              code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
+              permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
+              caption = ""
+              node = m.get("node",{})
+              edges = node.get("edge_media_to_caption",{}).get("edges",[])
+              if edges: caption = edges[0]["node"].get("text","")
+              else: caption = m.get("caption","")
+              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
+              if isinstance(ts, (int,float)): timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
+              else: timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat()+"Z"
+              out.append({
+                  "id": m.get("id") or code or img_path,
+                  "caption": caption,
+                  "media_url": "/" + img_path,
+                  "permalink": permalink,
+                  "media_type": "IMAGE",
+                  "timestamp": timestamp
+              })
+          out.sort(key=lambda x: x["timestamp"], reverse=True)
+          with open("media.json","w",encoding="utf-8") as f:
+              json.dump(out, f, ensure_ascii=False, indent=2)
+          PY
 
-      - name: Commit & push to main (show full logs)
+      - name: Commit & push
         run: |
-          set -x
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git status
-          git diff --staged --name-only || true
-          git commit -m "TEST: write media.json (explicit push)" || echo "No changes to commit"
-          # Push *explicitly* to main so we see an error if blocked
+          git commit -m "Update media.json + images" || echo "No changes to commit"
           git push origin HEAD:main
