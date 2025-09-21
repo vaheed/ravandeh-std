@@ -4,9 +4,8 @@ on:
   schedule: [{ cron: "0 3 * * *" }]   # daily at 03:00 UTC
   workflow_dispatch:                  # allow manual run
 
-# 1) allow pushing to the repo
 permissions:
-  contents: write
+  contents: write                     # allow pushing to the repo
 
 jobs:
   build-media-json:
@@ -25,16 +24,14 @@ jobs:
       - name: Install Instaloader
         run: pip install instaloader
 
-      # 2) Scrape PUBLIC profile without login
-      - name: Fetch latest posts
+      - name: Fetch latest posts (public profile)
         run: |
           rm -rf scraped && mkdir -p scraped
           instaloader --no-captions --no-video-thumbnails \
             --dirname-pattern scraped --slide --fast-update \
             --count 30 profile ravandeh.std || true
 
-      # 3) Build /media.json at REPO ROOT (what your page loads)
-      - name: Build media.json
+      - name: Build media.json at repo root
         run: |
           python - << 'PY'
           import json, os, glob, datetime
@@ -53,8 +50,10 @@ jobs:
               code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
               permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
               caption = ""
-              if m.get("node",{}).get("edge_media_to_caption",{}).get("edges"):
-                  caption = m["node"]["edge_media_to_caption"]["edges"][0]["node"].get("text","")
+              node = m.get("node",{})
+              edges = node.get("edge_media_to_caption",{}).get("edges",[])
+              if edges:
+                  caption = edges[0]["node"].get("text","")
               else:
                   caption = m.get("caption","")
               ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
@@ -70,9 +69,7 @@ jobs:
                   "media_type": "IMAGE",
                   "timestamp": timestamp
               })
-          # newest first
           out.sort(key=lambda x: x["timestamp"], reverse=True)
-          # Fallback: ensure media.json exists even if empty (prevents your page error)
           with open("media.json","w",encoding="utf-8") as f:
               json.dump(out, f, ensure_ascii=False, indent=2)
           PY
