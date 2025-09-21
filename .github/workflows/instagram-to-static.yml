@@ -1,0 +1,76 @@
+# .github/workflows/instagram-to-static.yml
+name: Instagram → Static media.json
+on:
+  schedule: [{ cron: "0 3 * * *" }]  # daily at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  build-media-json:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Instaloader
+        run: pip install instaloader
+
+      - name: Fetch latest posts (public profile, no login)
+        run: |
+          rm -rf scraped && mkdir -p scraped
+          # Download latest 30 posts without login (public pages only)
+          instaloader --no-captions --no-video-thumbnails --dirname-pattern scraped \
+            --slide --fast-update --count 30 profile ravandeh.std
+          # Instaloader saves each post folder with the image and metadata.json
+
+      - name: Build media.json
+        run: |
+          python - << 'PY'
+          import json, os, glob, datetime
+          out = []
+          for postdir in glob.glob("scraped/*"):
+              meta = os.path.join(postdir, "metadata.json")
+              if not os.path.exists(meta): 
+                  continue
+              with open(meta, "r", encoding="utf-8") as f:
+                  m = json.load(f)
+              # Find first image file in folder
+              imgs = sorted([p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
+              if not imgs: 
+                  continue
+              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
+              # Build permalink if available (shortcode)
+              code = m.get("shortcode") or m.get("node",{}).get("shortcode")
+              permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
+              # Caption
+              caption = m.get("node",{}).get("edge_media_to_caption",{}).get("edges",[{"node":{"text":""}}])[0]["node"]["text"] if m.get("node") else (m.get("caption") or "")
+              # Timestamp
+              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
+              if isinstance(ts, (int,float)):
+                  timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
+              else:
+                  timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat()+"Z"
+              out.append({
+                  "id": m.get("id") or code or img_path,
+                  "caption": caption,
+                  "media_url": "/" + img_path,     # served by GitHub Pages
+                  "permalink": permalink,
+                  "media_type": "IMAGE",
+                  "timestamp": timestamp
+              })
+          # newest first
+          out.sort(key=lambda x: x["timestamp"], reverse=True)
+          with open("media.json","w",encoding="utf-8") as f:
+              json.dump(out, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Commit & push
+        run: |
+          git config user.name "gh-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "Update media.json + images" || echo "No changes"
+          git push
