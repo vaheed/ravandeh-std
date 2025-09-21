@@ -1,13 +1,15 @@
-name: Instagram → Static media.json
+name: Instagram -> Static media.json
+
 on:
-  schedule: [{ cron: "0 3,15 * * *" }]   # run twice/day to dodge rate limits
-  workflow_dispatch: {}                  # allow manual run
+  schedule:
+    - cron: "0 3,15 * * *"   # run twice/day
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  build-media-json:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
@@ -25,49 +27,48 @@ jobs:
       - name: Install Instaloader
         run: pip install instaloader
 
-      - name: Gentle backoff (random 20–90s)
-        run: python - << 'PY'
-import random, time
-time.sleep(random.randint(20,90))
-print("Slept to avoid burst scraping.")
-PY
+      # Small random delay to avoid burst scraping (bash-only, no YAML heredoc)
+      - name: Gentle backoff
+        run: bash -lc 'sleep $(( (RANDOM % 71) + 20 ))'
 
-      # Anonymous scrape. It may be rate-limited; that's OK — we'll keep old media.json.
+      # Anonymous scrape. If IG rate-limits, that's okay; we will keep the old media.json.
       - name: Fetch latest posts (anonymous)
-        shell: bash
         run: |
           rm -rf scraped && mkdir -p scraped
-          # smaller count -> fewer requests -> fewer 401/403s
           instaloader --no-video-thumbnails --no-compress-json \
             --dirname-pattern scraped --fast-update \
             --count 10 "ravandeh.std" || true
           echo "Scraped tree:"
           ls -la scraped || true
 
-      - name: Build media.json (only if we actually got posts)
+      # Build media.new (relative paths). Only move to media.json if we actually got posts.
+      - name: Build media.json (robust)
         id: build
         shell: bash
         run: |
-          python - << 'PY'
-import json, os, glob, datetime, re, sys
+          python - <<'PY'
+import json, os, glob, datetime, re
 
 def post_dirs(root="scraped"):
     return sorted([d for d in glob.glob(os.path.join(root, "*")) if os.path.isdir(d)])
 
-def read_meta(postdir):
-    for p in sorted(glob.glob(os.path.join(postdir, "*.json"))):
+def read_meta(d):
+    for p in sorted(glob.glob(os.path.join(d, "*.json"))):
         try:
-            import json; return json.load(open(p, "r", encoding="utf-8"))
-        except Exception: pass
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return {}
 
 items = []
 for d in post_dirs():
     imgs = sorted([p for p in os.listdir(d) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
-    if not imgs: 
+    if not imgs:
         continue
-    img_path = f"{d}/{imgs[0]}".replace("\\","/")
-    meta = read_meta(d); node = meta.get("node", {})
+    img_path = f"{d}/{imgs[0]}".replace("\\", "/")
+    meta = read_meta(d)
+    node = meta.get("node", {})
     shortcode = meta.get("shortcode") or node.get("shortcode") or ""
     edges = node.get("edge_media_to_caption", {}).get("edges", [])
     caption = edges[0]["node"].get("text","") if edges and edges[0].get("node") else (meta.get("caption","") or "")
@@ -83,6 +84,7 @@ for d in post_dirs():
                 timestamp = datetime.datetime.utcnow().isoformat() + "Z"
         else:
             timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+
     items.append({
         "id": meta.get("id") or shortcode or img_path,
         "caption": caption,
@@ -95,41 +97,26 @@ for d in post_dirs():
 items.sort(key=lambda x: x["timestamp"], reverse=True)
 
 if items:
-    json.dump(items, open("media.json","w",encoding="utf-8"), ensure_ascii=False, indent=2)
-    print(f"Wrote media.json with {len(items)} items.")
-    print("HAS_CHANGES=true")
-else:
-    print("No posts scraped (rate limit?). Keeping existing media.json.")
-    print("HAS_CHANGES=false")
+    with open("media.new","w",encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
 PY
-          # Export a boolean output for the next step
-          HAS_CHANGES=$(python - << 'PY'
-import sys, re
-log = open(0).read() if False else ""
-# The above trick won't work; instead just echo from python and grep below. (handled in bash)
-PY
-          )
-        continue-on-error: false
-
-      - name: Did we produce a new media.json?
-        id: flag
-        shell: bash
-        run: |
-          if [ -f media.json ]; then
+          # Flag whether we produced new data
+          if [ -f media.new ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit & push (only if new data)
-        if: steps.flag.outputs.has_changes == 'true'
+        if: steps.build.outputs.has_changes == 'true'
         run: |
+          mv media.new media.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Update media.json + scraped images" || echo "No changes to commit"
           git push origin HEAD:main
 
-      - name: Log note when keeping previous media.json
-        if: steps.flag.outputs.has_changes != 'true'
-        run: echo "No fresh posts scraped; kept previous media.json (site remains up)."
+      - name: Keep previous media.json (no new data)
+        if: steps.build.outputs.has_changes != 'true'
+        run: echo "No fresh posts scraped; kept previous media.json."
