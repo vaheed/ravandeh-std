@@ -1,7 +1,8 @@
 name: Instagram → Static media.json
 on:
-  schedule: [{ cron: "0 3 * * *" }]
-  workflow_dispatch: {}
+  schedule: [{ cron: "0 3 * * *" }]   # daily at 03:00 UTC
+  workflow_dispatch: {}               # allow manual run
+
 permissions:
   contents: write
 
@@ -9,31 +10,43 @@ jobs:
   build-media-json:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { ref: main, fetch-depth: 0 }
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install instaloader
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Fetch latest posts (public profile)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Instaloader
+        run: pip install instaloader
+
+      - name: Fetch latest posts from public profile
         run: |
           rm -rf scraped && mkdir -p scraped
           instaloader --no-captions --no-video-thumbnails \
             --dirname-pattern scraped --slide --fast-update \
             --count 30 profile ravandeh.std || true
 
-      - name: Build media.json at repo root
+      - name: Build media.json (relative paths)
         run: |
           python - << 'PY'
           import json, os, glob, datetime
           out = []
           for postdir in sorted(glob.glob("scraped/*")):
               meta = os.path.join(postdir, "metadata.json")
-              if not os.path.exists(meta): continue
-              with open(meta, "r", encoding="utf-8") as f: m = json.load(f)
+              if not os.path.exists(meta): 
+                  continue
+              with open(meta, "r", encoding="utf-8") as f:
+                  m = json.load(f)
               imgs = sorted([p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
-              if not imgs: continue
-              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
+              if not imgs:
+                  continue
+              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")  # e.g. scraped/2025-.../IMG.jpg
               code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
               permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
               caption = ""
@@ -42,12 +55,12 @@ jobs:
               if edges: caption = edges[0]["node"].get("text","")
               else: caption = m.get("caption","")
               ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
-              if isinstance(ts, (int,float)): timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
+              if isinstance(ts,(int,float)): timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
               else: timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat()+"Z"
               out.append({
                   "id": m.get("id") or code or img_path,
                   "caption": caption,
-                  "media_url": "/" + img_path,
+                  "media_url": img_path,          # <-- RELATIVE (no leading slash)
                   "permalink": permalink,
                   "media_type": "IMAGE",
                   "timestamp": timestamp
@@ -62,5 +75,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Update media.json + images" || echo "No changes to commit"
+          git commit -m "Update media.json + scraped images" || echo "No changes to commit"
           git push origin HEAD:main
