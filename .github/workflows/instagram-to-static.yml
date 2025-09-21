@@ -1,6 +1,8 @@
-name: Write media.json test
+name: Write media.json test (explicit push)
+
 on:
   workflow_dispatch: {}
+
 permissions:
   contents: write
 
@@ -8,11 +10,26 @@ jobs:
   write:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - name: Checkout main (not detached)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
 
-      - name: Create a simple media.json at repo root
+      - name: Show repo state before changes
         run: |
+          set -x
+          git rev-parse --abbrev-ref HEAD
+          git status
+          git remote -v
+          ls -la
+
+      - name: Create media.json + a sample image
+        run: |
+          set -e
+          mkdir -p images
+          echo "fake image bytes" > images/sample-1.jpg
           cat > media.json << 'JSON'
           [
             {
@@ -25,13 +42,18 @@ jobs:
             }
           ]
           JSON
-          mkdir -p images
-          echo "fake image bytes" > images/sample-1.jpg
+          echo "---- after write ----"
+          ls -la
+          git status
 
-      - name: Commit & push
+      - name: Commit & push to main (show full logs)
         run: |
+          set -x
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "TEST: write media.json" || echo "No changes"
-          git push
+          git status
+          git diff --staged --name-only || true
+          git commit -m "TEST: write media.json (explicit push)" || echo "No changes to commit"
+          # Push *explicitly* to main so we see an error if blocked
+          git push origin HEAD:main
