@@ -1,14 +1,21 @@
-# .github/workflows/instagram-to-static.yml
 name: Instagram → Static media.json
+
 on:
-  schedule: [{ cron: "0 3 * * *" }]  # daily at 03:00 UTC
-  workflow_dispatch:
+  schedule: [{ cron: "0 3 * * *" }]   # daily at 03:00 UTC
+  workflow_dispatch:                  # allow manual run
+
+# 1) allow pushing to the repo
+permissions:
+  contents: write
 
 jobs:
   build-media-json:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -18,59 +25,62 @@ jobs:
       - name: Install Instaloader
         run: pip install instaloader
 
-      - name: Fetch latest posts (public profile, no login)
+      # 2) Scrape PUBLIC profile without login
+      - name: Fetch latest posts
         run: |
           rm -rf scraped && mkdir -p scraped
-          # Download latest 30 posts without login (public pages only)
-          instaloader --no-captions --no-video-thumbnails --dirname-pattern scraped \
-            --slide --fast-update --count 30 profile ravandeh.std
-          # Instaloader saves each post folder with the image and metadata.json
+          instaloader --no-captions --no-video-thumbnails \
+            --dirname-pattern scraped --slide --fast-update \
+            --count 30 profile ravandeh.std || true
 
+      # 3) Build /media.json at REPO ROOT (what your page loads)
       - name: Build media.json
         run: |
           python - << 'PY'
           import json, os, glob, datetime
           out = []
-          for postdir in glob.glob("scraped/*"):
+          for postdir in sorted(glob.glob("scraped/*")):
               meta = os.path.join(postdir, "metadata.json")
               if not os.path.exists(meta): 
                   continue
               with open(meta, "r", encoding="utf-8") as f:
                   m = json.load(f)
-              # Find first image file in folder
-              imgs = sorted([p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
-              if not imgs: 
+              imgs = [p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))]
+              if not imgs:
                   continue
+              imgs.sort()
               img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
-              # Build permalink if available (shortcode)
-              code = m.get("shortcode") or m.get("node",{}).get("shortcode")
+              code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
               permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
-              # Caption
-              caption = m.get("node",{}).get("edge_media_to_caption",{}).get("edges",[{"node":{"text":""}}])[0]["node"]["text"] if m.get("node") else (m.get("caption") or "")
-              # Timestamp
-              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
-              if isinstance(ts, (int,float)):
-                  timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
+              caption = ""
+              if m.get("node",{}).get("edge_media_to_caption",{}).get("edges"):
+                  caption = m["node"]["edge_media_to_caption"]["edges"][0]["node"].get("text","")
               else:
-                  timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat()+"Z"
+                  caption = m.get("caption","")
+              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
+              if isinstance(ts, (int, float)):
+                  timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
+              else:
+                  timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat() + "Z"
               out.append({
                   "id": m.get("id") or code or img_path,
                   "caption": caption,
-                  "media_url": "/" + img_path,     # served by GitHub Pages
+                  "media_url": "/" + img_path,   # served by GitHub Pages
                   "permalink": permalink,
                   "media_type": "IMAGE",
                   "timestamp": timestamp
               })
           # newest first
           out.sort(key=lambda x: x["timestamp"], reverse=True)
+          # Fallback: ensure media.json exists even if empty (prevents your page error)
           with open("media.json","w",encoding="utf-8") as f:
               json.dump(out, f, ensure_ascii=False, indent=2)
           PY
 
       - name: Commit & push
         run: |
-          git config user.name "gh-actions"
-          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Update media.json + images" || echo "No changes"
+          git commit -m "Update media.json + images" || echo "No changes to commit"
           git push
