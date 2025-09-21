@@ -4,16 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ravandeh Studio — Gallery</title>
-  <!-- Tailwind Play CDN (fine for a simple static page). For production, compile Tailwind. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { display: ['Inter', 'ui-sans-serif', 'system-ui'], body: ['Inter', 'ui-sans-serif', 'system-ui'] },
-          boxShadow: {
-            soft: '0 10px 25px rgba(0,0,0,0.08)',
-          }
+          fontFamily: { display: ['Inter','ui-sans-serif','system-ui'], body: ['Inter','ui-sans-serif','system-ui'] },
+          boxShadow: { soft: '0 10px 25px rgba(0,0,0,0.08)' }
         }
       }
     }
@@ -22,27 +19,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Masonry-like layout using CSS column layout */
-    .masonry { column-count: 1; column-gap: 1rem; }
-    @media (min-width: 640px) { .masonry { column-count: 2; } }
-    @media (min-width: 1024px) { .masonry { column-count: 3; } }
-    @media (min-width: 1536px) { .masonry { column-count: 4; } }
-    .masonry-item { break-inside: avoid; margin-bottom: 1rem; }
-
-    /* Simple fade-in */
-    .fade-in { opacity: 0; transform: translateY(8px); transition: opacity .5s ease, transform .5s ease; }
-    .fade-in.show { opacity: 1; transform: translateY(0); }
-
-    /* Postcard hover */
-    .postcard { position: relative; overflow: hidden; border-radius: 1rem; }
-    .postcard::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.55) 100%); opacity: 0; transition: opacity .3s ease; }
-    .postcard:hover::after { opacity: 1; }
-    .badge { backdrop-filter: blur(6px); }
-
-    /* Lightbox */
-    dialog::backdrop { background: rgba(0,0,0,0.8); }
-    dialog { border: none; border-radius: 1rem; padding: 0; max-width: 95vw; }
-    .lb-img { max-height: 85vh; width: auto; height: auto; display: block; }
+    .masonry{column-count:1;column-gap:1rem}
+    @media (min-width:640px){.masonry{column-count:2}}
+    @media (min-width:1024px){.masonry{column-count:3}}
+    @media (min-width:1536px){.masonry{column-count:4}}
+    .masonry-item{break-inside:avoid;margin-bottom:1rem}
+    .fade-in{opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s}
+    .fade-in.show{opacity:1;transform:translateY(0)}
+    .postcard{position:relative;overflow:hidden;border-radius:1rem}
+    .postcard::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.55) 100%);opacity:0;transition:opacity .3s}
+    .postcard:hover::after{opacity:1}
+    .badge{backdrop-filter:blur(6px)}
+    dialog::backdrop{background:rgba(0,0,0,.8)}
+    dialog{border:none;border-radius:1rem;padding:0;max-width:95vw}
+    .lb-img{max-height:85vh;width:auto;height:auto;display:block}
   </style>
 </head>
 <body class="min-h-screen bg-neutral-50 text-neutral-900 font-body">
@@ -64,16 +54,12 @@
           <option value="analog">Analog</option>
           <option value="digital">Digital</option>
         </select>
-        <a href="https://www.instagram.com/ravandeh.std/" target="_blank" class="inline-flex items-center gap-2 rounded-full bg-neutral-900 text-white px-4 py-2 text-sm shadow-soft hover:opacity-90 transition">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2 0 1.9.2 2.6.5.7.3 1.2.7 1.8 1.3.6.6 1 1.1 1.3 1.8.3.6.5 1.3.5 2.6.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c0 1.2-.2 1.9-.5 2.6-.3.7-.7 1.2-1.3 1.8-.6.6-1.1 1-1.8 1.3-.6.3-1.3.5-2.6.5-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2 0-1.9-.2-2.6-.5a4.8 4.8 0 0 1-1.8-1.3c-.6-.6-1-1.1-1.3-1.8-.3-.6-.5-1.3-.5-2.6C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c0-1.2.2-1.9.5-2.6.3-.7.7-1.2 1.3-1.8.6-.6 1.1-1 1.8-1.3.6-.3 1.3-.5 2.6-.5C8.4 2.2 8.8 2.2 12 2.2m0 1.8c-3.1 0-3.5 0-4.8.1-1 .1-1.5.2-1.9.4-.5.2-.8.4-1.2.8a3 3 0 0 0-.8 1.2c-.2.4-.4.9-.4 1.9-.1 1.3-.1 1.7-.1 4.8s0 3.5.1 4.8c.1 1 .2 1.5.4 1.9.2.5.4.8.8 1.2.4.4.7.6 1.2.8.4.2.9.4 1.9.4 1.3.1 1.7.1 4.8.1s3.5 0 4.8-.1c1-.1 1.5-.2 1.9-.4.5-.2.8-.4 1.2-.8.4-.4.6-.7.8-1.2.2-.4.4-.9.4-1.9.1-1.3.1-1.7.1-4.8s0-3.5-.1-4.8c-.1-1-.2-1.5-.4-1.9-.2-.5-.4-.8-.8-1.2-.4-.4-.7-.6-1.2-.8-.4-.2-.9-.4-1.9-.4-1.3-.1-1.7-.1-4.8-.1Z"/><path d="M12 5.8a6.2 6.2 0 1 1 0 12.4A6.2 6.2 0 0 1 12 5.8m0 1.8a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Zm6.4-2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0Z"/></svg>
-          @ravandeh.std
-        </a>
+        <a href="https://www.instagram.com/ravandeh.std/" target="_blank" class="inline-flex items-center gap-2 rounded-full bg-neutral-900 text-white px-4 py-2 text-sm shadow-soft hover:opacity-90 transition">@ravandeh.std</a>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-    <!-- Controls: style toggle, sort -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
       <div class="inline-flex items-center gap-1 rounded-full bg-white border border-neutral-200 px-2 py-1 shadow-soft">
         <button id="style-min" class="px-3 py-1 rounded-full text-sm font-medium hover:bg-neutral-100">Minimal</button>
@@ -85,14 +71,11 @@
       </select>
     </div>
 
-    <!-- Gallery -->
     <div id="gallery" class="masonry"></div>
 
-    <!-- Footer -->
     <footer class="text-center text-neutral-500 text-sm mt-12 mb-8">© <span id="year"></span> Ravandeh Studio — All images © respective photographers</footer>
   </main>
 
-  <!-- Lightbox Dialog -->
   <dialog id="lightbox">
     <div class="bg-black rounded-2xl overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 text-white">
@@ -113,51 +96,34 @@
   </dialog>
 
   <script>
-    /**
-     * CONFIG — choose ONE of the following ways to load media:
-     *
-     * A) Instagram Basic Display API (dynamic):
-     *    - Generate a Long-Lived Access Token and User ID for the account.
-     *    - WARNING: Putting tokens in a public page exposes them. For production, proxy this request through a serverless endpoint.
-     */
-    const INSTAGRAM_TOKEN = "";      // e.g. EAAG... (leave empty to disable API mode)
-    const INSTAGRAM_USER_ID = "";    // e.g. 1784140...
+    // ------------ CONFIG ------------
+    const INSTAGRAM_TOKEN = "";          // leave empty (no token)
+    const INSTAGRAM_USER_ID = "";        // leave empty (no token)
+    // IMPORTANT: relative path (works on GitHub Pages under /<user>/<repo>/)
+    const STATIC_JSON_URL = "media.json";
 
-    /**
-     * B) Static JSON (fully static, no secrets):
-     *    - Export media to /media.json (array of items with fields below).
-     *    - You can update media.json manually or via a cron/GitHub Action.
-     */
-    const STATIC_JSON_URL = "/media.json"; // set to null to disable static mode
-
-    // Tag rules: infer Analog/Digital from hashtags in caption (#analog, #digital). Override per-id here if needed.
-    const TYPE_OVERRIDES = {
-      // 'MEDIA_ID': 'analog' | 'digital'
+    // If a path in media.json starts with "/", strip it and prepend this repo base.
+    const REPO_BASE = (function () {
+      const parts = window.location.pathname.split('/');
+      return parts.length > 2 ? `/${parts[1]}/${parts[2]}/` : '/';
+    })();
+    const withBase = (url) => {
+      if (!url) return url;
+      const u = url.startsWith('/') ? url.slice(1) : url;
+      return REPO_BASE + u;
     };
 
-    // UI STATE
-    const state = {
-      items: [],
-      style: 'postcard',
-      filter: 'all',
-      sort: 'newest',
-      query: ''
-    };
+    const TYPE_OVERRIDES = {}; // optional overrides by media id
 
+    const state = { items: [], style: 'postcard', filter: 'all', sort: 'newest', query: '' };
     document.getElementById('year').textContent = new Date().getFullYear();
 
     // Controls
-    const filterEl = document.getElementById('filter');
-    const sortEl = document.getElementById('sort');
-    const searchEl = document.getElementById('search');
-    const styleMin = document.getElementById('style-min');
-    const stylePostcard = document.getElementById('style-postcard');
-
-    filterEl.addEventListener('change', () => { state.filter = filterEl.value; render(); });
-    sortEl.addEventListener('change', () => { state.sort = sortEl.value; render(); });
-    searchEl.addEventListener('input', () => { state.query = searchEl.value.toLowerCase(); render(); });
-    styleMin.addEventListener('click', () => { state.style = 'minimal'; stylePostcard.classList.remove('bg-neutral-900','text-white'); styleMin.classList.add('bg-neutral-900','text-white'); render(); });
-    stylePostcard.addEventListener('click', () => { state.style = 'postcard'; styleMin.classList.remove('bg-neutral-900','text-white'); stylePostcard.classList.add('bg-neutral-900','text-white'); render(); });
+    filter.onchange = () => (state.filter = filter.value, render());
+    sort.onchange = () => (state.sort = sort.value, render());
+    search.oninput = () => (state.query = search.value.toLowerCase(), render());
+    style-min.onclick = () => { state.style = 'minimal'; style-postcard.classList.remove('bg-neutral-900','text-white'); style-min.classList.add('bg-neutral-900','text-white'); render(); };
+    style-postcard.onclick = () => { state.style = 'postcard'; style-min.classList.remove('bg-neutral-900','text-white'); style-postcard.classList.add('bg-neutral-900','text-white'); render(); };
 
     // Lightbox
     const lb = document.getElementById('lightbox');
@@ -166,11 +132,11 @@
     const lbType = document.getElementById('lb-type');
     const lbDate = document.getElementById('lb-date');
     const lbLink = document.getElementById('lb-link');
-    document.getElementById('lb-close').addEventListener('click', () => lb.close());
+    document.getElementById('lb-close').onclick = () => lb.close();
     lb.addEventListener('click', (e) => { if (e.target === lb) lb.close(); });
 
     function openLightbox(item) {
-      lbImg.src = item.media_url;
+      lbImg.src = withBase(item.media_url);
       lbCaption.textContent = item.caption || '';
       lbType.textContent = (item.type || 'photo').toUpperCase();
       lbDate.textContent = new Date(item.timestamp).toLocaleDateString();
@@ -178,22 +144,7 @@
       lb.showModal();
     }
 
-    // Fetch helpers
-    async function fetchAllInstagramMedia(token, userId) {
-      const base = `https://graph.instagram.com/${userId}/media?fields=id,caption,media_url,permalink,thumbnail_url,media_type,timestamp&access_token=${token}&limit=100`;
-      let url = base; const items = [];
-      while (url) {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Instagram API error');
-        const data = await res.json();
-        for (const it of (data.data || [])) {
-          items.push(normalizeItem(it));
-        }
-        url = data.paging && data.paging.next ? data.paging.next : null;
-      }
-      return items;
-    }
-
+    // Fetch helpers (static mode only in your case)
     async function fetchStaticJson(path) {
       const res = await fetch(path, { cache: 'no-store' });
       if (!res.ok) throw new Error('media.json not found');
@@ -205,16 +156,15 @@
       const id = raw.id || crypto.randomUUID();
       const caption = raw.caption || '';
       const media_type = (raw.media_type || raw.type || 'IMAGE').toUpperCase();
-      const timestamp = raw.timestamp || raw.taken_at || Date.now();
-      const permalink = raw.permalink || `https://www.instagram.com/p/${raw.code || ''}`;
-      const media_url = raw.media_url || raw.display_url || raw.thumbnail_url;
+      const timestamp = raw.timestamp || Date.now();
+      const permalink = raw.permalink || 'https://www.instagram.com/ravandeh.std/';
+      const media_url = raw.media_url;
       let type = TYPE_OVERRIDES[id] || inferTypeFromCaption(caption);
       if (!type) type = 'digital';
       return { id, caption, media_url, permalink, media_type, timestamp, type };
     }
-
     function inferTypeFromCaption(caption) {
-      const c = caption.toLowerCase();
+      const c = (caption || '').toLowerCase();
       if (/#analog\b/.test(c) || /\banalog\b/.test(c)) return 'analog';
       if (/#digital\b/.test(c) || /\bdigital\b/.test(c)) return 'digital';
       return null;
@@ -231,19 +181,18 @@
     function render() {
       const container = document.getElementById('gallery');
       container.innerHTML = '';
-      const items = getFilteredSorted(state.items);
-      for (const item of items) {
+      for (const item of getFilteredSorted(state.items)) {
         const card = document.createElement('article');
         card.className = 'masonry-item fade-in';
         const minimal = `
-          <img src="${item.media_url}" loading="lazy" alt="" class="w-full rounded-xl shadow-soft"/>
+          <img src="${withBase(item.media_url)}" loading="lazy" alt="" class="w-full rounded-xl shadow-soft"/>
           <div class="mt-2 flex items-center justify-between">
             <div class="text-sm text-neutral-600 line-clamp-2">${escapeHtml(item.caption || '')}</div>
             <div class="text-xs text-neutral-500">${new Date(item.timestamp).toLocaleDateString()}</div>
           </div>`;
         const postcard = `
           <div class="postcard shadow-soft">
-            <img src="${item.media_url}" loading="lazy" alt="" class="w-full block"/>
+            <img src="${withBase(item.media_url)}" loading="lazy" alt="" class="w-full block"/>
             <div class="absolute inset-x-0 bottom-0 p-3 text-white flex items-end justify-between">
               <div>
                 <div class="inline-flex items-center gap-2 text-xs badge bg-white/10 rounded-full px-2 py-1">
@@ -256,52 +205,28 @@
             </div>
           </div>`;
         card.innerHTML = state.style === 'minimal' ? minimal : postcard;
-        // Click -> lightbox
         card.addEventListener('click', () => openLightbox(item));
         container.appendChild(card);
-        // reveal animation
         requestAnimationFrame(() => card.classList.add('show'));
       }
     }
-
-    function escapeHtml(str) {
-      return str.replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
-    }
+    function escapeHtml(str){return (str||'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
 
     async function init() {
       try {
-        let items = [];
-        if (INSTAGRAM_TOKEN && INSTAGRAM_USER_ID) {
-          items = await fetchAllInstagramMedia(INSTAGRAM_TOKEN, INSTAGRAM_USER_ID);
-        } else if (STATIC_JSON_URL) {
-          items = await fetchStaticJson(STATIC_JSON_URL);
-        }
+        const items = await fetchStaticJson(STATIC_JSON_URL);
         state.items = items;
         render();
-      } catch (err) {
-        console.error(err);
-        const container = document.getElementById('gallery');
-        container.innerHTML = `<div class="p-6 rounded-xl bg-red-50 border border-red-200 text-red-700">
-          <div class="font-semibold">Couldn’t load images.</div>
-          <div class="text-sm mt-1">If you’re using Instagram API mode, double‑check USER_ID and TOKEN. For static mode, add a <code>media.json</code> file next to this page.</div>
-        </div>`;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('gallery').innerHTML = `
+          <div class="p-6 rounded-xl bg-red-50 border border-red-200 text-red-700">
+            <div class="font-semibold">Couldn’t load images.</div>
+            <div class="text-sm mt-1">Ensure <code>media.json</code> exists in your repo root and image paths are relative.</div>
+          </div>`;
       }
     }
-
     init();
   </script>
-
-  <!-- Example media.json schema (delete this comment in production):
-  [
-    {
-      "id": "1789...",
-      "caption": "Sunset over Tehran #analog",
-      "media_url": "https://.../photo.jpg",
-      "permalink": "https://www.instagram.com/p/XXXX/",
-      "media_type": "IMAGE",
-      "timestamp": "2025-09-10T12:34:56+0000"
-    }
-  ]
-  -->
 </body>
 </html>
