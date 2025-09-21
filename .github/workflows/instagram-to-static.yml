@@ -2,7 +2,7 @@ name: Instagram -> Static media.json
 
 on:
   schedule:
-    - cron: "0 3,15 * * *"   # run twice/day
+    - cron: "0 3,15 * * *"   # run twice per day
   workflow_dispatch: {}
 
 permissions:
@@ -27,26 +27,22 @@ jobs:
       - name: Install Instaloader
         run: pip install instaloader
 
-      # Small random delay to avoid burst scraping (bash-only, no YAML heredoc)
       - name: Gentle backoff
         run: bash -lc 'sleep $(( (RANDOM % 71) + 20 ))'
 
-      # Anonymous scrape. If IG rate-limits, that's okay; we will keep the old media.json.
       - name: Fetch latest posts (anonymous)
         run: |
           rm -rf scraped && mkdir -p scraped
+          # Smaller count reduces rate-limit risk. If IG blocks, we still continue.
           instaloader --no-video-thumbnails --no-compress-json \
             --dirname-pattern scraped --fast-update \
             --count 10 "ravandeh.std" || true
           echo "Scraped tree:"
           ls -la scraped || true
 
-      # Build media.new (relative paths). Only move to media.json if we actually got posts.
-      - name: Build media.json (robust)
-        id: build
-        shell: bash
+      - name: Build media.new (relative paths)
         run: |
-          python - <<'PY'
+          python <<'PY'
 import json, os, glob, datetime, re
 
 def post_dirs(root="scraped"):
@@ -88,7 +84,7 @@ for d in post_dirs():
     items.append({
         "id": meta.get("id") or shortcode or img_path,
         "caption": caption,
-        "media_url": img_path,  # RELATIVE path (works on GH Pages)
+        "media_url": img_path,  # RELATIVE path (works on GitHub Pages)
         "permalink": f"https://www.instagram.com/p/{shortcode}/" if shortcode else "https://www.instagram.com/ravandeh.std/",
         "media_type": "IMAGE",
         "timestamp": timestamp
@@ -99,24 +95,20 @@ items.sort(key=lambda x: x["timestamp"], reverse=True)
 if items:
     with open("media.new","w",encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
+else:
+    # No posts scraped (rate limit or none found) -> don't write anything.
+    pass
 PY
-          # Flag whether we produced new data
-          if [ -f media.new ]; then
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-          fi
 
-      - name: Commit & push (only if new data)
-        if: steps.build.outputs.has_changes == 'true'
+      - name: Commit media.json if we have new data
         run: |
-          mv media.new media.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Update media.json + scraped images" || echo "No changes to commit"
-          git push origin HEAD:main
-
-      - name: Keep previous media.json (no new data)
-        if: steps.build.outputs.has_changes != 'true'
-        run: echo "No fresh posts scraped; kept previous media.json."
+          if [ -f media.new ]; then
+            mv media.new media.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "Update media.json + scraped images" || echo "No changes to commit"
+            git push origin HEAD:main
+          else
+            echo "No fresh posts scraped; keeping previous media.json."
+          fi
