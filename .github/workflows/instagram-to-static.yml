@@ -25,47 +25,85 @@ jobs:
       - name: Install Instaloader
         run: pip install instaloader
 
+      # ✅ Correct Instaloader usage: pass the USERNAME only.
+      # ✅ Removed the invalid --slide and the "profile" keyword.
       - name: Fetch latest posts from public profile
         run: |
           rm -rf scraped && mkdir -p scraped
           instaloader --no-captions --no-video-thumbnails \
-            --dirname-pattern scraped --slide --fast-update \
-            --count 30 profile ravandeh.std || true
+            --dirname-pattern scraped --fast-update \
+            --count 30 "ravandeh.std" || true
 
-      - name: Build media.json (relative paths)
+      # Build media.json at repo root with RELATIVE paths (work on GH Pages)
+      - name: Build media.json (relative paths, tolerant to JSON variations)
         run: |
           python - << 'PY'
-          import json, os, glob, datetime
+          import json, os, glob, datetime, re
+
+          def first_json_in(d):
+              js = sorted(glob.glob(os.path.join(d, "*.json")))
+              return js[0] if js else None
+
+          def read_meta(p):
+              if not p: return {}
+              try:
+                  with open(p, "r", encoding="utf-8") as f:
+                      return json.load(f)
+              except Exception:
+                  return {}
+
           out = []
           for postdir in sorted(glob.glob("scraped/*")):
-              meta = os.path.join(postdir, "metadata.json")
-              if not os.path.exists(meta): 
-                  continue
-              with open(meta, "r", encoding="utf-8") as f:
-                  m = json.load(f)
-              imgs = sorted([p for p in os.listdir(postdir) if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
+              # find an image
+              imgs = sorted([p for p in os.listdir(postdir)
+                             if p.lower().endswith((".jpg",".jpeg",".png",".webp"))])
               if not imgs:
                   continue
-              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")  # e.g. scraped/2025-.../IMG.jpg
-              code = (m.get("shortcode") or m.get("node",{}).get("shortcode") or "")
-              permalink = f"https://www.instagram.com/p/{code}/" if code else "https://www.instagram.com/ravandeh.std/"
+              img_path = f"{postdir}/{imgs[0]}".replace("\\","/")
+              meta = read_meta(first_json_in(postdir))
+
+              # shortcode if present
+              node = meta.get("node", {})
+              shortcode = (meta.get("shortcode") or node.get("shortcode") or "")
+
+              # caption if present
               caption = ""
-              node = m.get("node",{})
-              edges = node.get("edge_media_to_caption",{}).get("edges",[])
-              if edges: caption = edges[0]["node"].get("text","")
-              else: caption = m.get("caption","")
-              ts = m.get("taken_at_timestamp") or m.get("date_local") or m.get("date_utc")
-              if isinstance(ts,(int,float)): timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat()+"Z"
-              else: timestamp = str(ts) if ts else datetime.datetime.utcnow().isoformat()+"Z"
+              edges = node.get("edge_media_to_caption", {}).get("edges", [])
+              if edges and isinstance(edges, list) and edges[0].get("node"):
+                  caption = edges[0]["node"].get("text", "")
+              else:
+                  caption = meta.get("caption", "") or ""
+
+              # timestamp if present
+              ts = meta.get("taken_at_timestamp") or meta.get("date_local") or meta.get("date_utc")
+              if isinstance(ts, (int, float)):
+                  timestamp = datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
+              else:
+                  # try to parse from folder name like '2025-09-...'
+                  m = re.search(r"(20\\d{2}-\\d{2}-\\d{2})", postdir)
+                  if m:
+                      try:
+                          timestamp = datetime.datetime.fromisoformat(m.group(1)).isoformat() + "Z"
+                      except Exception:
+                          timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+                  else:
+                      timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+
+              permalink = f"https://www.instagram.com/p/{shortcode}/" if shortcode else "https://www.instagram.com/ravandeh.std/"
+
               out.append({
-                  "id": m.get("id") or code or img_path,
+                  "id": meta.get("id") or shortcode or img_path,
                   "caption": caption,
-                  "media_url": img_path,          # <-- RELATIVE (no leading slash)
+                  "media_url": img_path,        # RELATIVE (no leading slash)
                   "permalink": permalink,
                   "media_type": "IMAGE",
                   "timestamp": timestamp
               })
+
+          # newest first
           out.sort(key=lambda x: x["timestamp"], reverse=True)
+
+          # write to repo root
           with open("media.json","w",encoding="utf-8") as f:
               json.dump(out, f, ensure_ascii=False, indent=2)
           PY
